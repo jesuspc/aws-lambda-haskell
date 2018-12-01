@@ -8,6 +8,7 @@ import Protolude
 import Data.Default.Class (def)
 import qualified Data.Text.Encoding as TextEncoding
 import qualified Network.HTTP.Req as Req
+import Network.HTTP.Req ((/:))
 
 import AWSLambda.Runtime.Internal
 import AWSLambda.Runtime.Invocation.Internal
@@ -15,33 +16,32 @@ import AWSLambda.Runtime.Invocation.Internal
 data Response =
   Response (Either ErrorCode ())
 
-run :: Text -> Text -> HandlerResponse -> IO ()
-run endpoint reqId handlerRsp@SuccessHandlerResponse {} = do
+run :: (Text, Int) -> Text -> HandlerResponse -> IO ()
+run (host, port) reqId handlerRsp@SuccessHandlerResponse {} = do
   let url =
-        endpoint <> "/2018-06-01/runtime/invocation/" <> reqId <> "/response"
-  rsp <- doPost url reqId handlerRsp
+        Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
+        "response"
+  rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
-run endpoint reqId handlerRsp@FailureHandlerResponse {} = do
-  let url = endpoint <> "/2018-06-01/runtime/invocation/" <> reqId <> "/error"
-  rsp <- doPost url reqId handlerRsp
+run (host, port) reqId handlerRsp@FailureHandlerResponse {} = do
+  let url =
+        Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
+        "error"
+  rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
 
-doPost :: Text -> Text -> HandlerResponse -> IO Response
-doPost url reqId handlerRsp =
+doPost :: Req.Url scheme -> Int -> Text -> HandlerResponse -> IO Response
+doPost url port reqId handlerRsp = do
+  print "Posting callback..."
   Req.runReq def $ do
     let payload = TextEncoding.encodeUtf8 $ getPayload handlerRsp
     let contentTypeHeader =
           Req.header "content-type" $
           TextEncoding.encodeUtf8 $
           maybe "text/html" id (mContentType handlerRsp)
-    let options = contentTypeHeader
+    let options = contentTypeHeader <> Req.port port
     rsp <-
-      Req.req
-        Req.POST
-        (Req.http url)
-        (Req.ReqBodyBs payload)
-        Req.ignoreResponse
-        options
+      Req.req Req.POST url (Req.ReqBodyBs payload) Req.ignoreResponse options
     let code = Req.responseStatusCode rsp
     if not (code >= 200 && code <= 299)
       then do
@@ -50,7 +50,12 @@ doPost url reqId handlerRsp =
             ("Failed to post handler success response. Http response code: " <>
              show code :: Text)
         return $ Response (Left (ErrorCode code))
-      else return $ Response (Right ())
+      else do
+        liftIO $
+          print
+            ("Success to post handler success response. Http response code: " <>
+             show code :: Text)
+        return $ Response (Right ())
 
 handleResponse :: Text -> Response -> IO Bool
 handleResponse reqId (Response (Right ())) = return True

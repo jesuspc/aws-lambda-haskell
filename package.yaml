@@ -34,7 +34,7 @@ library:
 executables:
   aws-lambda-haskell-simple-example-exe:
     main:                Main.hs
-    source-dirs:         app
+    source-dirs:         examples/simple
     ghc-options:
     - -threaded
     - -rtsopts
@@ -42,13 +42,3 @@ executables:
     dependencies:
     - aws-lambda-haskell
 
-tests:
-  aws-lambda-haskell-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - aws-lambda-haskell

@@ -3,9 +3,11 @@ module AWSLambda.Runtime
   , HandlerRequest
   , HandlerResponse
   , mkSuccessResponse
+  , payload
+  , requestId
   ) where
 
-import Prelude (error)
+import Prelude (error, id)
 import Protolude
 
 import AWSLambda.Runtime.Internal
@@ -25,12 +27,15 @@ mkFailureResponse :: Text -> Text -> HandlerResponse
 mkFailureResponse errorMsg errorType =
   FailureHandlerResponse {mErrorMsg = errorMsg, mErrorType = errorType}
 
-getEndpoint :: IO (Either Text Text)
+getEndpoint :: IO (Either Text (Text, Int))
 getEndpoint = do
   ep <- lookupEnv "AWS_LAMBDA_RUNTIME_API"
   case ep of
     Nothing -> return (Left "AWS_LAMBDA_RUNTIME_API not found in ENV")
-    Just ep' -> return (Right ("http://" <> Text.pack ep'))
+    Just ep' -> do
+      let [host, port] = Text.splitOn ":" (Text.pack ep')
+      let port' = maybe 80 id (readMaybe (Text.unpack port))
+      return (Right (host, port'))
 
 runHandler :: (HandlerRequest -> IO HandlerResponse) -> IO ()
 runHandler handler = do
@@ -38,8 +43,9 @@ runHandler handler = do
   ep <- getEndpoint
   either (error . Text.unpack) (loop handler) ep
 
-loop :: (HandlerRequest -> IO HandlerResponse) -> Text -> IO ()
+loop :: (HandlerRequest -> IO HandlerResponse) -> (Text, Int) -> IO ()
 loop handler endpoint = do
+  print "Getting next invocation..."
   NextInvocation.Response rsp <- NextInvocation.get endpoint
   either handleError handleSuccess rsp
   where

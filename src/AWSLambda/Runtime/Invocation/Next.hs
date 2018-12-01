@@ -4,6 +4,7 @@ module AWSLambda.Runtime.Invocation.Next
   , ErrorCode(..)
   ) where
 
+import Data.Maybe (fromJust)
 import Protolude hiding (get)
 
 import Data.Default.Class (def)
@@ -12,6 +13,7 @@ import qualified Data.Text.Encoding as TextEncoding
 import Data.Time.Clock
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import qualified Network.HTTP.Req as Req
+import Network.HTTP.Req ((/:))
 
 import AWSLambda.Runtime.Internal
 import AWSLambda.Runtime.Invocation.Internal
@@ -19,12 +21,11 @@ import AWSLambda.Runtime.Invocation.Internal
 newtype Response =
   Response (Either ErrorCode HandlerRequest)
 
-get :: Text -> IO Response
-get endpoint = do
-  let url = endpoint <> "/2018-06-01/runtime/invocation/next"
+get :: (Text, Int) -> IO Response
+get (host, port) = do
+  let url = Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: "next"
   Req.runReq def $ do
-    rsp <-
-      Req.req Req.GET (Req.http endpoint) Req.NoReqBody Req.bsResponse mempty
+    rsp <- Req.req Req.GET url Req.NoReqBody Req.bsResponse (Req.port port)
     let code = Req.responseStatusCode rsp
     if not (code >= 200 && code <= 299)
       then do

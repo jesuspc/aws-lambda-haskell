@@ -4,6 +4,8 @@ import AWSLambda.Runtime
   ( HandlerRequest
   , HandlerResponse
   , mkSuccessResponse
+  , payload
+  , requestId
   , runHandler
   )
 import Protolude
@@ -16,4 +18,5 @@ main = runHandler myHandler
 myHandler :: HandlerRequest -> IO HandlerResponse
 myHandler req = do
   print "Log line"
+  print $ "Payload: " <> payload req
   return $ mkSuccessResponse "{ \"success\" : \"true\" }" "application/json"

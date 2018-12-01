@@ -20,9 +20,9 @@
 # resolver: https://example.com/snapshots/2018-01-01.yaml
 resolver: lts-12.14
 
-# docker:
-#   enable: true
-#   image: fpco/stack-build:lts-12.14
+docker:
+  enable: true
+  image: fpco/stack-build:lts-12.14
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
