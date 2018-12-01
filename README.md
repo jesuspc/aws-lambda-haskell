@@ -6,11 +6,14 @@ This package makes it easy to run AWS Lambda Functions written in Haskell.
 
 Examples can be found in the examples directory.
 
+In order to build them you'll need to fetch the `fpco/stack-build:lts-12.14` docker image. The run `stack build` in the root directory.
+
 ## Deployment
 
 - Build the executable (you'll need to target your executable for an x86_64-linux platform). Compilation is that case is done through stack but any other tool would be fine. 
 
 It's advised to build the executable without the --threaded flag. AWS lambdas run in a single thread.
+
 
 ```bash
 stack build
