@@ -31,11 +31,16 @@ getEndpoint :: IO (Either Text (Text, Int))
 getEndpoint = do
   ep <- lookupEnv "AWS_LAMBDA_RUNTIME_API"
   case ep of
-    Nothing -> return (Left "AWS_LAMBDA_RUNTIME_API not found in ENV")
-    Just ep' -> do
-      let [host, port] = Text.splitOn ":" (Text.pack ep')
-      let port' = maybe 80 id (readMaybe (Text.unpack port))
-      return (Right (host, port'))
+    Nothing -> pure $ Left "AWS_LAMBDA_RUNTIME_API not found in ENV"
+    Just ep' -> pure $ Right (getHostAndPort (Text.pack ep'))
+  where
+    getHostAndPort endpoint =
+      let getPort rawPort = maybe 80 id (readMaybe (Text.unpack rawPort))
+       in case Text.splitOn ":" endpoint of
+            [] -> ("", 80)
+            [host] -> (host, 80)
+            [host, portRaw] -> (host, getPort portRaw)
+            host:portRaw:_ -> (host, getPort portRaw)
 
 runHandler :: (HandlerRequest -> IO HandlerResponse) -> IO ()
 runHandler handler = do
