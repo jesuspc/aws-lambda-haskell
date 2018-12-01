@@ -36,9 +36,9 @@ executables:
     main:                Main.hs
     source-dirs:         examples/simple
     ghc-options:
-    - -threaded
+    # - -threaded
     - -rtsopts
-    - -with-rtsopts=-N
+    # - -with-rtsopts=-N
     dependencies:
     - aws-lambda-haskell
 

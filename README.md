@@ -10,6 +10,8 @@ Examples can be found in the examples directory.
 
 - Build the executable (you'll need to target your executable for an x86_64-linux platform). Compilation is that case is done through stack but any other tool would be fine. 
 
+It's advised to build the executable without the --threaded flag. AWS lambdas run in a single thread.
+
 ```bash
 stack build
 ```
