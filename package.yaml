@@ -1,23 +1,19 @@
 name:                aws-lambda-haskell
 version:             0.1.0.0
-github:              "githubuser/aws-lambda-haskell"
+github:              "jesuspc/aws-lambda-haskell"
 license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2018 Author name here"
+author:              "Jesús Prieto Colomina"
+maintainer:          "chus1818@gmail.com"
+copyright:           "2018 Jesús Prieto Colomina"
 
 extra-source-files:
 - README.md
 - ChangeLog.md
 
-# Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            This package makes it easy to run AWS Lambda Functions written in Haskell.
+category:            AWS
 
-# To avoid duplicated efforts in documentation and dealing with the
-# complications of embedding Haddock markup inside cabal files, it is
-# common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/aws-lambda-haskell#readme>
+description:         Please see the README on GitHub at <https://github.com/jesuspc/aws-lambda-haskell#readme>
 
 dependencies:
 - base >= 4.7 && < 5
