@@ -1,13 +1,14 @@
 module AWSLambda.Runtime.Invocation.Next
   ( get
+  , getWithRetries
   , Response(..)
   , ErrorCode(..)
   ) where
 
-import Data.Maybe (fromJust)
 import Protolude hiding (get)
 
 import Data.Default.Class (def)
+import Data.Maybe (fromJust)
 import qualified Data.Text as Text
 import qualified Data.Text.Encoding as TextEncoding
 import Data.Time.Clock
@@ -21,11 +22,29 @@ import AWSLambda.Runtime.Invocation.Internal
 newtype Response =
   Response (Either ErrorCode HandlerRequest)
 
+getWithRetries :: Int -> (Text, Int) -> IO Response
+getWithRetries maxRetries endpoint = getWithRetries' 0
+  where
+    getWithRetries' retryNum = do
+      rsp <- try (get endpoint) :: IO (Either SomeException Response)
+      case rsp of
+        Left ex ->
+          if retryNum >= maxRetries
+            then throwIO ex
+            else getWithRetries' (retryNum + 1)
+        Right rsp' -> pure rsp'
+
 get :: (Text, Int) -> IO Response
 get (host, port) = do
   let url = Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: "next"
   Req.runReq def $ do
-    rsp <- Req.req Req.GET url Req.NoReqBody Req.bsResponse (Req.port port)
+    rsp <-
+      Req.req
+        Req.GET
+        url
+        Req.NoReqBody
+        Req.bsResponse
+        (Req.port port <> Req.responseTimeout 3000000)
     let code = Req.responseStatusCode rsp
     if not (code >= 200 && code <= 299)
       then do

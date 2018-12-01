@@ -18,4 +18,4 @@ main = runHandler myHandler
 myHandler :: HandlerRequest -> IO HandlerResponse
 myHandler req = do
   print $ "Payload: " <> Req.payload req
-  return $ mkSuccessResponse "{ \"success\" : \"true\" }" "application/json"
+  return $ mkSuccessResponse "{ \"success\" : true }" "application/json"

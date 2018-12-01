@@ -22,12 +22,14 @@ run (host, port) reqId handlerRsp@SuccessHandlerResponse {} = do
   let url =
         Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
         "response"
+  print (("Going to post callback to: " <> show url) :: Text)
   rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
 run (host, port) reqId handlerRsp@FailureHandlerResponse {} = do
   let url =
         Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
         "error"
+  print (("Going to post callback to: " <> show url) :: Text)
   rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
 
@@ -41,7 +43,8 @@ doPost url port reqId handlerRsp = do
           Req.header "content-type" $
           TextEncoding.encodeUtf8 $
           maybe "text/html" id (mContentType handlerRsp)
-    let options = contentTypeHeader <> Req.port port
+    let options =
+          contentTypeHeader <> Req.port port <> Req.responseTimeout 3000000
     rsp <-
       Req.req Req.POST url (Req.ReqBodyBs payload) Req.ignoreResponse options
     let code = Req.responseStatusCode rsp
@@ -49,13 +52,13 @@ doPost url port reqId handlerRsp = do
       then do
         liftIO $
           print
-            ("Failed to post handler success response. Http response code: " <>
+            ("Failed to post handler response. Http response code: " <>
              show code :: Text)
         return $ Response (Left (ErrorCode code))
       else do
         liftIO $
           print
-            ("Success to post handler success response. Http response code: " <>
+            ("Success to post handler response. Http response code: " <>
              show code :: Text)
         return $ Response (Right ())
 
