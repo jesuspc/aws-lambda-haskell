@@ -33,6 +33,7 @@ library:
     - text
     - req
     - data-default-class
+    - aeson
 
 executables:
   aws-lambda-haskell-exe:

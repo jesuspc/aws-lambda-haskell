@@ -19,7 +19,11 @@ import qualified Network.HTTP.Req as Req
 
 mkSuccessResponse :: Text -> Text -> HandlerResponse
 mkSuccessResponse p ct =
-  HandlerResponse {mPayload = p, mContentType = ct, mSuccess = True}
+  SuccessHandlerResponse {mPayload = p, mContentType = Just ct}
+
+mkFailureResponse :: Text -> Text -> HandlerResponse
+mkFailureResponse errorMsg errorType =
+  FailureHandlerResponse {mErrorMsg = errorMsg, mErrorType = errorType}
 
 getEndpoint :: IO (Either Text Text)
 getEndpoint = do
@@ -43,9 +47,7 @@ loop handler endpoint = do
       print "Invoking user handler."
       res <- handler req
       print "Invoking user handler completed."
-      if mSuccess res
-        then InvocationCallback.success endpoint (requestId req) res
-        else InvocationCallback.failure endpoint (requestId req) res
+      InvocationCallback.run endpoint (requestId req) res
     handleFailedInvocationRetrieval (NextInvocation.ErrorCode code) =
       case code of
         -1 -> print "Failed to send HTTP request to retrieve next task."
