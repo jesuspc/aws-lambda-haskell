@@ -15,7 +15,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import qualified Network.HTTP.Req as Req
 import Network.HTTP.Req ((/:))
 
-import AWSLambda.Runtime.Internal
+import AWSLambda.Runtime.Handler.Request (HandlerRequest(..))
 import AWSLambda.Runtime.Invocation.Internal
 
 newtype Response =

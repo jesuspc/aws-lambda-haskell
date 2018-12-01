@@ -10,7 +10,8 @@ import qualified Data.Text.Encoding as TextEncoding
 import qualified Network.HTTP.Req as Req
 import Network.HTTP.Req ((/:))
 
-import AWSLambda.Runtime.Internal
+import AWSLambda.Runtime.Handler.Response (HandlerResponse(..))
+import qualified AWSLambda.Runtime.Handler.Response as HandlerResponse
 import AWSLambda.Runtime.Invocation.Internal
 
 data Response =
@@ -34,7 +35,8 @@ doPost :: Req.Url scheme -> Int -> Text -> HandlerResponse -> IO Response
 doPost url port reqId handlerRsp = do
   print "Posting callback..."
   Req.runReq def $ do
-    let payload = TextEncoding.encodeUtf8 $ getPayload handlerRsp
+    let payload =
+          TextEncoding.encodeUtf8 $ HandlerResponse.getPayload handlerRsp
     let contentTypeHeader =
           Req.header "content-type" $
           TextEncoding.encodeUtf8 $

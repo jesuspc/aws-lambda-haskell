@@ -1,23 +1,15 @@
-module AWSLambda.Runtime.Internal where
+module AWSLambda.Runtime.Handler.Response
+  ( HandlerResponse(..)
+  , isSuccess
+  , getPayload
+  ) where
 
-import Data.Aeson
-
-import qualified Data.Text.Lazy as LazyText
-import qualified Data.Text.Lazy.Encoding as LazyTextEncoding
-import Data.Time.Clock (UTCTime)
-
-import GHC.Exts (fromList)
 import Protolude
 
-data HandlerRequest = HandlerRequest
-  { payload :: Text
-  , requestId :: Text
-  , xrayTraceId :: Maybe Text
-  , clientContext :: Maybe Text
-  , cognitoIdentity :: Maybe Text
-  , functionArn :: Maybe Text
-  , deadline :: Maybe UTCTime
-  }
+import Data.Aeson
+import qualified Data.Text.Lazy as LazyText
+import qualified Data.Text.Lazy.Encoding as LazyTextEncoding
+import GHC.Exts (fromList)
 
 data HandlerResponse
   = SuccessHandlerResponse { mPayload :: Text

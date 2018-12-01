@@ -3,21 +3,23 @@ module AWSLambda.Runtime
   , HandlerRequest
   , HandlerResponse
   , mkSuccessResponse
-  , payload
-  , requestId
+  , mkFailureResponse
   ) where
 
 import Prelude (error, id)
 import Protolude
 
-import AWSLambda.Runtime.Internal
-import qualified AWSLambda.Runtime.Invocation.Callback as InvocationCallback
-import qualified AWSLambda.Runtime.Invocation.Next as NextInvocation
+import Data.Default.Class (def)
 import qualified Data.Text as Text
+import qualified Network.HTTP.Req as Req
 import System.Environment (lookupEnv)
 
-import Data.Default.Class (def)
-import qualified Network.HTTP.Req as Req
+import AWSLambda.Runtime.Handler.Request (HandlerRequest(..))
+import qualified AWSLambda.Runtime.Handler.Request as HandlerRequest
+import AWSLambda.Runtime.Handler.Response (HandlerResponse(..))
+import qualified AWSLambda.Runtime.Handler.Response as HandlerResponse
+import qualified AWSLambda.Runtime.Invocation.Callback as InvocationCallback
+import qualified AWSLambda.Runtime.Invocation.Next as NextInvocation
 
 mkSuccessResponse :: Text -> Text -> HandlerResponse
 mkSuccessResponse p ct =
