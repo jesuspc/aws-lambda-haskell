@@ -6,7 +6,7 @@ module AWSLambda.Runtime
   , mkFailureResponse
   ) where
 
-import Prelude (error, id)
+import Prelude (error)
 import Protolude
 
 import Data.Default.Class (def)
@@ -20,6 +20,7 @@ import AWSLambda.Runtime.Handler.Response (HandlerResponse(..))
 import qualified AWSLambda.Runtime.Handler.Response as HandlerResponse
 import qualified AWSLambda.Runtime.Invocation.Callback as InvocationCallback
 import qualified AWSLambda.Runtime.Invocation.Next as NextInvocation
+import System.IO (BufferMode(..), hSetBuffering)
 
 mkSuccessResponse :: Text -> Text -> HandlerResponse
 mkSuccessResponse p ct =
@@ -37,7 +38,7 @@ getEndpoint = do
     Just ep' -> pure $ Right (getHostAndPort (Text.pack ep'))
   where
     getHostAndPort endpoint =
-      let getPort rawPort = maybe 80 id (readMaybe (Text.unpack rawPort))
+      let getPort rawPort = fromMaybe 80 (readMaybe (Text.unpack rawPort))
        in case Text.splitOn ":" endpoint of
             [] -> ("", 80)
             [host] -> (host, 80)
@@ -46,6 +47,7 @@ getEndpoint = do
 
 runHandler :: (HandlerRequest -> IO HandlerResponse) -> IO ()
 runHandler handler = do
+  hSetBuffering stdout LineBuffering
   print "Initialising the Haskell Lambda Runtime."
   ep <- getEndpoint
   either (error . Text.unpack) (loop handler) ep
