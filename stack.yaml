@@ -21,7 +21,7 @@
 resolver: lts-12.14
 
 docker:
-  enable: false
+  enable: true
   image: fpco/stack-build:lts-12.14
 
 # User packages to be built.
