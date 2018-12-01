@@ -36,7 +36,7 @@ library:
     - aeson
 
 executables:
-  aws-lambda-haskell-exe:
+  aws-lambda-haskell-simple-example-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

@@ -41,14 +41,14 @@ runHandler handler = do
 loop :: (HandlerRequest -> IO HandlerResponse) -> Text -> IO ()
 loop handler endpoint = do
   NextInvocation.Response rsp <- NextInvocation.get endpoint
-  either handleFailedInvocationRetrieval handleInvocation rsp
+  either handleError handleSuccess rsp
   where
-    handleInvocation req = do
+    handleSuccess req = do
       print "Invoking user handler."
       res <- handler req
       print "Invoking user handler completed."
       InvocationCallback.run endpoint (requestId req) res
-    handleFailedInvocationRetrieval (NextInvocation.ErrorCode code) =
+    handleError (NextInvocation.ErrorCode code) =
       case code of
         -1 -> print "Failed to send HTTP request to retrieve next task."
         _ -> do
