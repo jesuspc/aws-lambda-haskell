@@ -30,6 +30,8 @@ library:
     - req
     - data-default-class
     - aeson
+    - monad-logger
+    - exceptions
 
 executables:
   aws-lambda-haskell-simple-example-exe:

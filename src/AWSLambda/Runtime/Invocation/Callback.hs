@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module AWSLambda.Runtime.Invocation.Callback
   ( run
   ) where
@@ -13,29 +15,41 @@ import Network.HTTP.Req ((/:))
 import AWSLambda.Runtime.Handler.Response (HandlerResponse(..))
 import qualified AWSLambda.Runtime.Handler.Response as HandlerResponse
 import AWSLambda.Runtime.Invocation.Internal
+import Control.Monad.Logger (MonadLogger, logDebug, logWarn)
 
 data Response =
   Response (Either ErrorCode ())
 
-run :: (Text, Int) -> Text -> HandlerResponse -> IO ()
+run ::
+     (MonadLogger m, MonadIO m)
+  => (Text, Int)
+  -> Text
+  -> HandlerResponse
+  -> m ()
 run (host, port) reqId handlerRsp@SuccessHandlerResponse {} = do
   let url =
         Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
         "response"
-  print (("Going to post callback to: " <> show url) :: Text)
+  $(logDebug) ("Going to post callback to: " <> show url)
   rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
 run (host, port) reqId handlerRsp@FailureHandlerResponse {} = do
   let url =
         Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: reqId /:
         "error"
-  print (("Going to post callback to: " <> show url) :: Text)
+  $(logDebug) ("Going to post callback to: " <> show url)
   rsp <- doPost url port reqId handlerRsp
   void $ handleResponse reqId rsp
 
-doPost :: Req.Url scheme -> Int -> Text -> HandlerResponse -> IO Response
+doPost ::
+     (MonadLogger m, MonadIO m)
+  => Req.Url scheme
+  -> Int
+  -> Text
+  -> HandlerResponse
+  -> m Response
 doPost url port reqId handlerRsp = do
-  print "Posting callback..."
+  $(logDebug) "Posting callback..."
   Req.runReq def $ do
     let payload =
           TextEncoding.encodeUtf8 $ HandlerResponse.getPayload handlerRsp
@@ -49,29 +63,19 @@ doPost url port reqId handlerRsp = do
       Req.req Req.POST url (Req.ReqBodyBs payload) Req.ignoreResponse options
     let code = Req.responseStatusCode rsp
     if not (code >= 200 && code <= 299)
-      then do
-        liftIO $
-          print
-            ("Failed to post handler response. Http response code: " <>
-             show code :: Text)
-        return $ Response (Left (ErrorCode code))
-      else do
-        liftIO $
-          print
-            ("Success to post handler response. Http response code: " <>
-             show code :: Text)
-        return $ Response (Right ())
+      then pure $ Response (Left (ErrorCode code))
+      else return $ Response (Right ())
 
-handleResponse :: Text -> Response -> IO Bool
-handleResponse reqId (Response (Right ())) = return True
-handleResponse reqId (Response (Left (ErrorCode code))) =
-  if code == -1
-    then do
-      print $ "Failed to send HTTP request for invocation " <> reqId
-      return False
-    else do
-      print $
-        "HTTP Request for invocation" <> reqId <>
-        "was not successful. HTTP response code: " <>
-        show code
-      return False
+handleResponse :: (MonadLogger m, MonadIO m) => Text -> Response -> m Bool
+handleResponse reqId (Response (Right ())) = do
+  $(logDebug) ("Success callback HTTP request for invocation " <> reqId)
+  return True
+-- TODO: Improve handling for this scenario by reporting it to the runtime/init/error endpoint
+-- See https://github.com/awslabs/aws-lambda-rust-runtime/blob/ad28790312219fb63f26170ae0d8be697fc1f7f2/lambda-runtime/src/runtime.rs#L12 fail_init
+-- Also see https://github.com/awslabs/aws-lambda-rust-runtime/blob/master/lambda-runtime-client/src/client.rs
+handleResponse reqId (Response (Left (ErrorCode code))) = do
+  $(logWarn)
+    ("HTTP Request for invocation" <> reqId <>
+     "was not successful. HTTP response code: " <>
+     show code)
+  return False
