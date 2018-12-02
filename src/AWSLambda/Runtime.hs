@@ -46,7 +46,7 @@ mkFailureResponse errorMsg errorType =
   FailureHandlerResponse {mErrorMsg = errorMsg, mErrorType = errorType}
 
 defaultLogLevel :: LogLevel
-defaultLogLevel = LevelDebug
+defaultLogLevel = LevelInfo
 
 runHandler :: (HandlerRequest -> IO HandlerResponse) -> IO ()
 runHandler = runHandler' defaultLogLevel
