@@ -57,8 +57,8 @@ runHandler' logLevel handler = do
   runLoggingT (start handler) runLogs
   where
     runLogs :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-    runLogs loc logSource logLevel logStr
-      | logLevel >= logLevel = print logStr
+    runLogs loc logSource logLevel' logStr
+      | logLevel' >= logLevel = print logStr
       | otherwise = return ()
 
 start ::
