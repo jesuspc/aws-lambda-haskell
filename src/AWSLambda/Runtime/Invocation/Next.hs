@@ -4,8 +4,6 @@
 module AWSLambda.Runtime.Invocation.Next
   ( get
   , getWithRetries
-  , Response(..)
-  , ErrorCode(..)
   ) where
 
 import Protolude hiding (get, try)
@@ -22,31 +20,31 @@ import qualified Network.HTTP.Req as Req
 import Network.HTTP.Req ((/:))
 
 import AWSLambda.Runtime.Handler.Request (HandlerRequest(..))
-import AWSLambda.Runtime.Invocation.Internal
-
-newtype Response =
-  Response (Either ErrorCode HandlerRequest)
+import qualified AWSLambda.Runtime.Invocation.Client as InvocationClient
 
 getWithRetries ::
      forall m. (MonadThrow m, MonadCatch m, MonadLogger m, MonadIO m)
   => Int
   -> (Text, Int)
-  -> m Response
+  -> m (InvocationClient.Response HandlerRequest)
 getWithRetries maxRetries endpoint = getWithRetries' 0
   where
     getWithRetries' retryNum = do
-      rsp <- try (get endpoint) :: m (Either SomeException Response)
-      case rsp of
-        Left ex ->
-          if retryNum >= maxRetries
-            then throwM ex
-            else getWithRetries' (retryNum + 1)
-        Right rsp' -> pure rsp'
+      rsp <-
+        try (get endpoint) :: m (Either SomeException (InvocationClient.Response HandlerRequest))
+      either handleError pure rsp
+      where
+        handleError ex
+          | retryNum >= maxRetries = throwM ex
+          | otherwise = getWithRetries' $ retryNum + 1
 
-get :: (MonadLogger m, MonadIO m) => (Text, Int) -> m Response
+get ::
+     (MonadLogger m, MonadIO m)
+  => (Text, Int)
+  -> m (InvocationClient.Response HandlerRequest)
 get (host, port) = do
   let url = Req.http host /: "2018-06-01" /: "runtime" /: "invocation" /: "next"
-  rsp <-
+  rsp' <-
     Req.runReq def $ do
       rsp <-
         Req.req
@@ -56,39 +54,38 @@ get (host, port) = do
           Req.bsResponse
           (Req.port port <> Req.responseTimeout 3000000)
       let code = Req.responseStatusCode rsp
-      if not (code >= 200 && code <= 299)
-        then pure $ Response (Left (ErrorCode code))
-        else do
-          let body = Req.responseBody rsp
-          let mReqId = Req.responseHeader rsp "lambda-runtime-aws-request-id"
-          case mReqId of
-            Nothing -> pure $ Response (Left (ErrorCode (-1)))
-            Just reqId ->
-              pure $
-              Response
-                (Right
-                   HandlerRequest
-                     { payload = TextEncoding.decodeUtf8 body
-                     , requestId = TextEncoding.decodeUtf8 reqId
-                     , xrayTraceId = getHeader rsp "lambda-runtime-trace-id"
-                     , clientContext =
-                         getHeader rsp "lambda-runtime-client-context"
-                     , cognitoIdentity =
-                         getHeader rsp "lambda-runtime-cognito-identity"
-                     , functionArn =
-                         getHeader rsp "lambda-runtime-invoked-function-arn"
-                     , deadline = getDeadline rsp
-                     })
-  case rsp of
-    Response (Left (ErrorCode code)) -> do
+      pure $
+        if not (InvocationClient.isSuccessCode code)
+          then InvocationClient.mkErrorResponse code
+          else let buildResponse reqId =
+                     InvocationClient.mkSuccessResponse
+                       HandlerRequest
+                         { payload =
+                             TextEncoding.decodeUtf8 . Req.responseBody $ rsp
+                         , requestId = reqId
+                         , xrayTraceId = getHeader rsp "lambda-runtime-trace-id"
+                         , clientContext =
+                             getHeader rsp "lambda-runtime-client-context"
+                         , cognitoIdentity =
+                             getHeader rsp "lambda-runtime-cognito-identity"
+                         , functionArn =
+                             getHeader rsp "lambda-runtime-invoked-function-arn"
+                         , deadline = getDeadline rsp
+                         }
+                in maybe
+                     (InvocationClient.mkErrorResponse (-1))
+                     buildResponse
+                     (TextEncoding.decodeUtf8 <$>
+                      Req.responseHeader rsp "lambda-runtime-aws-request-id")
+  logResponse rsp'
+  pure rsp'
+  where
+    logResponse (InvocationClient.SuccessResponse req) =
+      $(logDebug)
+        ("Success to get next invocation. ReqId is" <> (show . requestId $ req))
+    logResponse (InvocationClient.ErrorResponse code) =
       $(logDebug)
         ("Failed to get next invocation. Http Response code: " <> show code)
-      pure rsp
-    Response (Right req) -> do
-      $(logDebug)
-        ("Success to get next invocation. ReqId is" <> show (requestId req))
-      pure rsp
-  where
     getHeader r header = TextEncoding.decodeUtf8 <$> Req.responseHeader r header
     getDeadline r = do
       millis <-

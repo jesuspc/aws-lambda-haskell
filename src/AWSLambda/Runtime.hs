@@ -34,19 +34,18 @@ import qualified AWSLambda.Runtime.Handler.Request as HandlerRequest
 import AWSLambda.Runtime.Handler.Response (HandlerResponse(..))
 import qualified AWSLambda.Runtime.Handler.Response as HandlerResponse
 import qualified AWSLambda.Runtime.Invocation.Callback as InvocationCallback
+import qualified AWSLambda.Runtime.Invocation.Client as InvocationClient
 import qualified AWSLambda.Runtime.Invocation.Next as NextInvocation
 import System.IO (BufferMode(..), hSetBuffering)
 
-mkSuccessResponse :: Text -> Text -> HandlerResponse
-mkSuccessResponse p ct =
-  SuccessHandlerResponse {mPayload = p, mContentType = Just ct}
-
-mkFailureResponse :: Text -> Text -> HandlerResponse
-mkFailureResponse errorMsg errorType =
-  FailureHandlerResponse {mErrorMsg = errorMsg, mErrorType = errorType}
-
 defaultLogLevel :: LogLevel
 defaultLogLevel = LevelInfo
+
+mkSuccessResponse :: Text -> Text -> HandlerResponse
+mkSuccessResponse = HandlerResponse.mkSuccess
+
+mkFailureResponse :: Text -> Text -> HandlerResponse
+mkFailureResponse = HandlerResponse.mkFailure
 
 runHandler :: (HandlerRequest -> IO HandlerResponse) -> IO ()
 runHandler = runHandler' defaultLogLevel
@@ -74,13 +73,15 @@ getEndpoint ::
      (MonadLogger m, MonadIO m, MonadThrow m, MonadCatch m)
   => m (Either Text (Text, Int))
 getEndpoint = do
-  ep <- liftIO $ lookupEnv "AWS_LAMBDA_RUNTIME_API"
-  case ep of
-    Nothing -> pure $ Left "AWS_LAMBDA_RUNTIME_API not found in ENV"
-    Just ep' -> pure $ Right (getHostAndPort (Text.pack ep'))
+  ep <- liftIO . lookupEnv $ "AWS_LAMBDA_RUNTIME_API"
+  pure $
+    maybe
+      (Left "AWS_LAMBDA_RUNTIME_API not found in ENV")
+      (Right . getHostAndPort . Text.pack)
+      ep
   where
     getHostAndPort endpoint =
-      let getPort rawPort = fromMaybe 80 (readMaybe (Text.unpack rawPort))
+      let getPort rawPort = fromMaybe 80 . readMaybe . Text.unpack $ rawPort
        in case Text.splitOn ":" endpoint of
             [] -> ("", 80)
             [host] -> (host, 80)
@@ -94,18 +95,18 @@ loop ::
   -> m ()
 loop handler endpoint = do
   $(logDebug) "Getting next invocation..."
-  NextInvocation.Response rsp <- NextInvocation.getWithRetries 3 endpoint
-  either handleError handleSuccess rsp
+  NextInvocation.getWithRetries 3 endpoint >>= handleResponse
   where
-    handleSuccess req = do
+    handleResponse (InvocationClient.SuccessResponse req) = do
       $(logDebug) "Invoking user handler."
-      res <- liftIO $ handler req
+      res <- liftIO . handler $ req
       $(logDebug) "Invoking user handler completed."
       InvocationCallback.run endpoint (requestId req) res
       loop handler endpoint
-    handleError (NextInvocation.ErrorCode code) =
+    handleResponse (InvocationClient.ErrorResponse code) =
       case code of
-        -1 -> $(logDebug) "Failed to send HTTP request to retrieve next task."
+        InvocationClient.ErrorCode (-1) ->
+          $(logDebug) "Failed to send HTTP request to retrieve next task."
         _ -> do
           $(logDebug)
             ("HTTP request was not successful. HTTP response code: " <>

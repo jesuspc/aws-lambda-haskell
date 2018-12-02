@@ -2,6 +2,8 @@ module AWSLambda.Runtime.Handler.Response
   ( HandlerResponse(..)
   , isSuccess
   , getPayload
+  , mkSuccess
+  , mkFailure
   ) where
 
 import Protolude
@@ -34,3 +36,10 @@ getPayload rsp@FailureHandlerResponse {} =
         , ("errorType", String (mErrorType rsp))
         , ("stackTrace", Array $ fromList [])
         ]
+
+mkSuccess :: Text -> Text -> HandlerResponse
+mkSuccess p ct = SuccessHandlerResponse {mPayload = p, mContentType = Just ct}
+
+mkFailure :: Text -> Text -> HandlerResponse
+mkFailure errorMsg errorType =
+  FailureHandlerResponse {mErrorMsg = errorMsg, mErrorType = errorType}
