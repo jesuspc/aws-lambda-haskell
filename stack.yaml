@@ -24,6 +24,9 @@ docker:
   enable: true
   image: fpco/stack-build:lts-12.14
 
+nix:
+  enable: false
+
 # User packages to be built.
 # Various formats can be used as shown in the example below.
 #
